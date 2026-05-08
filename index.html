@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlaucoVision — Retinal Glaucoma Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --surface: #101828;
+    --card: #141e2e;
+    --border: rgba(100,160,255,0.12);
+    --accent: #4fa3ff;
+    --accent2: #7dd3a8;
+    --danger: #ff6b6b;
+    --warn: #ffd166;
+    --text: #e8eef8;
+    --muted: #6b7fa3;
+    --glow: rgba(79,163,255,0.18);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated background ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 80% 10%, rgba(79,163,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 10% 80%, rgba(125,211,168,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ── Layout ── */
+  .page { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 48px 0 56px;
+  }
+  .logo-eye {
+    width: 52px; height: 52px; flex-shrink: 0;
+    position: relative;
+  }
+  .logo-eye svg { width: 100%; height: 100%; }
+  .header-text h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 5vw, 2.8rem);
+    letter-spacing: -0.02em;
+    background: linear-gradient(120deg, #e8eef8 30%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+  }
+  .header-text p {
+    font-size: 0.9rem; color: var(--muted); margin-top: 6px; font-weight: 300;
+  }
+  .badge {
+    margin-left: auto; display: flex; align-items: center; gap: 6px;
+    background: rgba(79,163,255,0.08); border: 1px solid var(--border);
+    border-radius: 99px; padding: 6px 14px; font-size: 0.75rem; color: var(--accent);
+    white-space: nowrap;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ── Upload card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(8px);
+  }
+  .card-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 20px; font-weight: 500;
+  }
+
+  /* ── Drop zone ── */
+  #dropzone {
+    border: 2px dashed rgba(100,160,255,0.25);
+    border-radius: 14px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+    position: relative;
+  }
+  #dropzone:hover, #dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,163,255,0.05);
+  }
+  #dropzone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 16px; }
+  .drop-title { font-size: 1.1rem; font-weight: 500; margin-bottom: 8px; }
+  .drop-sub { font-size: 0.85rem; color: var(--muted); }
+  .drop-sub span { color: var(--accent); font-weight: 500; }
+
+  /* ── Preview ── */
+  #preview-wrapper {
+    display: none;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  #preview-wrapper.show { display: flex; }
+  #preview-img {
+    width: 180px; height: 180px; object-fit: cover;
+    border-radius: 12px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .preview-info { flex: 1; }
+  .file-name { font-size: 0.95rem; font-weight: 500; margin-bottom: 6px; word-break: break-all; }
+  .file-meta { font-size: 0.82rem; color: var(--muted); margin-bottom: 20px; }
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 20px;
+  }
+  .feat-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+  }
+  .feat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .feat-value { font-size: 1rem; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: 10px; font-size: 0.88rem;
+    font-family: inherit; font-weight: 500; cursor: pointer;
+    border: none; transition: all 0.2s; text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--accent); color: #0a0f1a;
+    box-shadow: 0 0 0 0 rgba(79,163,255,0.4);
+  }
+  .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 0 24px rgba(79,163,255,0.3); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; filter: none; box-shadow: none; }
+  .btn-ghost {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(100,160,255,0.3); }
+
+  /* ── Spinner ── */
+  .spinner {
+    width: 18px; height: 18px; border: 2px solid rgba(10,15,26,0.3);
+    border-top-color: #0a0f1a; border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Result ── */
+  #result-section { display: none; }
+  #result-section.show { display: block; }
+
+  .result-card {
+    border-radius: 20px; padding: 36px;
+    border: 1px solid transparent;
+    transition: all 0.4s;
+    animation: fadeUp 0.5s ease;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .result-card.healthy {
+    background: linear-gradient(135deg, rgba(125,211,168,0.08), rgba(10,15,26,0.4));
+    border-color: rgba(125,211,168,0.25);
+  }
+  .result-card.glaucoma {
+    background: linear-gradient(135deg, rgba(255,107,107,0.08), rgba(10,15,26,0.4));
+    border-color: rgba(255,107,107,0.25);
+  }
+
+  .result-top { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 28px; }
+  .result-icon { font-size: 3rem; line-height: 1; flex-shrink: 0; }
+  .result-headline { font-family: 'DM Serif Display', serif; font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.1; margin-bottom: 6px; }
+  .result-sub { font-size: 0.9rem; color: var(--muted); font-weight: 300; line-height: 1.5; max-width: 420px; }
+
+  /* ── Confidence bar ── */
+  .conf-section { margin-bottom: 24px; }
+  .conf-label { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 10px; }
+  .conf-label span:first-child { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; }
+  .conf-label span:last-child { font-weight: 600; font-size: 1rem; }
+  .conf-bar-bg { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .conf-bar-fill {
+    height: 100%; border-radius: 99px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+  .healthy .conf-bar-fill { background: linear-gradient(90deg, var(--accent2), #a8edca); }
+  .glaucoma .conf-bar-fill { background: linear-gradient(90deg, var(--danger), #ff9a9a); }
+
+  /* ── Advice box ── */
+  .advice-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    font-size: 0.86rem; line-height: 1.6; color: var(--muted);
+  }
+  .advice-box strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; font-size: 0.78rem; color: var(--muted); margin-top: 60px;
+    padding-top: 24px; border-top: 1px solid var(--border);
+  }
+
+  /* ── Error ── */
+  #error-box {
+    display: none; background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: 12px; padding: 16px 20px;
+    font-size: 0.88rem; color: #ff9a9a; margin-top: 16px;
+  }
+  #error-box.show { display: block; }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    header { flex-wrap: wrap; }
+    .badge { margin-left: 0; }
+    #preview-wrapper.show { flex-direction: column; }
+    #preview-img { width: 100%; height: 200px; }
+    .feature-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-eye">
+      <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="26" cy="26" rx="24" ry="14" stroke="#4fa3ff" stroke-width="2.5"/>
+        <circle cx="26" cy="26" r="8" fill="rgba(79,163,255,0.15)" stroke="#4fa3ff" stroke-width="2"/>
+        <circle cx="26" cy="26" r="3.5" fill="#4fa3ff"/>
+        <circle cx="22" cy="22" r="1.5" fill="white" opacity="0.6"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>GlaucoVision</h1>
+      <p>AI-powered retinal fundus image analysis</p>
+    </div>
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Model Active
+    </div>
+  </header>
+
+  <!-- Upload Card -->
+  <div class="card">
+    <div class="card-title">Step 1 — Upload Retinal Image</div>
+
+    <!-- Dropzone (shown when no image) -->
+    <div id="dropzone">
+      <input type="file" id="file-input" accept="image/*"/>
+      <div class="drop-icon">🔬</div>
+      <div class="drop-title">Drop your fundus image here</div>
+      <div class="drop-sub">or <span>click to browse</span> &nbsp;·&nbsp; JPG, PNG, WebP supported</div>
+    </div>
+
+    <!-- Preview (shown after selection) -->
+    <div id="preview-wrapper">
+      <img id="preview-img" src="" alt="Uploaded retinal image"/>
+      <div class="preview-info">
+        <div class="file-name" id="file-name">—</div>
+        <div class="file-meta" id="file-meta">—</div>
+        <div class="feature-grid" id="feature-grid">
+          <div class="feat-item"><div class="feat-label">Brightness</div><div class="feat-value" id="f-brightness">—</div></div>
+          <div class="feat-item"><div class="feat-label">Disc Size</div><div class="feat-value" id="f-disc">—</div></div>
+          <div class="feat-item"><div class="feat-label">Cup/Disc Ratio</div><div class="feat-value" id="f-cdr">—</div></div>
+          <div class="feat-item"><div class="feat-label">Variation</div><div class="feat-value" id="f-var">—</div></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="analyze-btn" onclick="analyze()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Analyze Image
+          </button>
+          <button class="btn btn-ghost" onclick="resetAll()">✕ Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-box"></div>
+  </div>
+
+  <!-- Result Section -->
+  <div id="result-section">
+    <div class="card-title" style="margin-bottom:12px; padding: 0 4px;">Step 2 — Prediction Result</div>
+    <div class="result-card" id="result-card">
+      <div class="result-top">
+        <div class="result-icon" id="result-icon">—</div>
+        <div>
+          <div class="result-headline" id="result-headline">—</div>
+          <div class="result-sub" id="result-sub">—</div>
+        </div>
+      </div>
+      <div class="conf-section">
+        <div class="conf-label">
+          <span>Confidence</span>
+          <span id="conf-pct">—</span>
+        </div>
+        <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-fill"></div></div>
+      </div>
+      <div class="advice-box" id="advice-box">—</div>
+      <div style="margin-top:20px;">
+        <button class="btn btn-ghost" onclick="resetAll()">← Analyze Another Image</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    GlaucoVision &nbsp;·&nbsp; Powered by AI — <em>Not a substitute for professional medical diagnosis</em>
+  </footer>
+</div>
+
+<script>
+const API_URL = "https://backend-glaucomadetection.onrender.com";
+
+// ── Drag & Drop ──
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) handleFile(f);
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+let extractedFeatures = null;
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-meta').textContent =
+      `${(file.size / 1024).toFixed(1)} KB · ${file.type}`;
+
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('preview-wrapper').classList.add('show');
+    document.getElementById('result-section').classList.remove('show');
+    hideError();
+
+    extractFeatures(ev.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Feature extraction from image ──
+// IMPORTANT: The model was trained on SYNTHETIC data with these exact ranges:
+//   brightness  → np.random.normal(120, 10)   → raw 0–255 scale, mean ~120
+//   disc_size   → np.random.normal(50, 5)      → pixel count scale, mean ~50
+//   cup_to_disc → uniform(0.1–0.4) or (0.5–0.9) → ratio 0.0–1.0
+//   variation   → np.random.normal(0.5, 0.1)   → normalized std, mean ~0.5
+// All feature values MUST match these ranges to produce meaningful predictions.
+function extractFeatures(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const size = 128;
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size).data;
+    const numPixels = size * size;
+
+    // ── Feature 1: avg_brightness → raw 0–255 scale (trained on ~120±10) ──
+    let totalRaw = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      totalRaw += 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+    }
+    const brightness = +(totalRaw / numPixels).toFixed(4); // e.g. 85–160
+
+    // ── Feature 2: disc_size → count of bright pixels scaled to ~50±5 ──
+    // Training used np.random.normal(50,5) as a placeholder "disc size".
+    // We estimate: count pixels above a threshold, then scale to the ~50 range.
+    const discThreshold = 150; // lower threshold to catch reddish fundus discs
+    let brightCount = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+      if (lum > discThreshold) brightCount++;
+    }
+    // Scale: map brightCount (0–numPixels) into a ~30–70 range to match training
+    const disc_size = +(30 + (brightCount / numPixels) * 40).toFixed(4);
+
+    // ── Feature 3: cup_to_disc_ratio → 0.0–1.0 (KEY feature for glaucoma) ──
+    // Strategy: find the brightest region (optic disc) dynamically, then
+    // compare a tighter inner zone (cup) vs wider zone (disc) brightness.
+    // Step 1: find the brightest 10x10 patch as disc center
+    let bestSum = -1, discCx = size/2, discCy = size/2;
+    const patchR = 5;
+    for (let py = patchR; py < size - patchR; py += 2) {
+      for (let px = patchR; px < size - patchR; px += 2) {
+        let psum = 0;
+        for (let dy = -patchR; dy <= patchR; dy++) {
+          for (let dx = -patchR; dx <= patchR; dx++) {
+            const idx = ((py+dy)*size + (px+dx)) * 4;
+            psum += 0.299*data[idx] + 0.587*data[idx+1] + 0.114*data[idx+2];
+          }
+        }
+        if (psum > bestSum) { bestSum = psum; discCx = px; discCy = py; }
+      }
+    }
+    // Step 2: compare inner cup zone vs outer disc ring around found center
+    const cupR  = size * 0.12;
+    const discR = size * 0.28;
+    let cupSum = 0, cupN = 0, discRingSum = 0, discRingN = 0;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dist = Math.sqrt((x - discCx)**2 + (y - discCy)**2);
+        const idx = (y * size + x) * 4;
+        const lum = (0.299*data[idx] + 0.587*data[idx+1] + 0.114*data[idx+2]) / 255;
+        if (dist <= cupR)              { cupSum += lum;      cupN++; }
+        else if (dist <= discR)        { discRingSum += lum; discRingN++; }
+      }
+    }
+    const cupAvg      = cupN      > 0 ? cupSum      / cupN      : 0;
+    const discRingAvg = discRingN > 0 ? discRingSum / discRingN : 1;
+    // CDR = how much brighter the cup is vs the disc ring, clamped to 0.0–1.0
+    const rawCDR = discRingAvg > 0 ? cupAvg / discRingAvg : 0.3;
+    const cup_to_disc = +Math.min(Math.max(rawCDR - 0.05, 0.05), 0.95).toFixed(4);
+
+    // ── Feature 4: variation → normalized std ~0.5±0.1 scale ──
+    // Training used np.random.normal(0.5, 0.1). We compute actual image std
+    // on 0–1 scale which naturally falls in 0.1–0.5 for fundus images,
+    // then shift it up to match training distribution.
+    const meanNorm = totalRaw / numPixels / 255;
+    let varSum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const b = (0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2]) / 255;
+      varSum += (b - meanNorm) ** 2;
+    }
+    const rawStd = Math.sqrt(varSum / numPixels); // typically 0.1–0.35
+    // Map to ~0.3–0.7 to overlap with training range of ~0.5±0.1
+    const variation = +(0.3 + rawStd * 1.2).toFixed(4);
+
+    extractedFeatures = [brightness, disc_size, cup_to_disc, variation];
+
+    document.getElementById('f-brightness').textContent = brightness;
+    document.getElementById('f-disc').textContent = disc_size;
+    document.getElementById('f-cdr').textContent = cup_to_disc;
+    document.getElementById('f-var').textContent = variation;
+  };
+  img.src = dataUrl;
+}
+
+// ── Analyze ──
+async function analyze() {
+  if (!extractedFeatures) { showError("Please wait for feature extraction to complete."); return; }
+  hideError();
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Analyzing…`;
+
+  try {
+    const resp = await fetch(`${API_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ features: extractedFeatures })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || `Server error ${resp.status}`);
+    }
+    const data = await resp.json();
+    showResult(data.prediction, data.confidence);
+  } catch (e) {
+    showError(`API Error: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Image`;
+  }
+}
+
+function showResult(prediction, confidence) {
+  const isGlaucoma = prediction.toLowerCase().includes('glaucoma');
+  const pct = Math.round(confidence * 100);
+  const card = document.getElementById('result-card');
+  card.className = 'result-card ' + (isGlaucoma ? 'glaucoma' : 'healthy');
+
+  document.getElementById('result-icon').textContent = isGlaucoma ? '⚠️' : '✅';
+  document.getElementById('result-headline').textContent = prediction;
+  document.getElementById('result-sub').textContent = isGlaucoma
+    ? 'Signs consistent with glaucoma were detected in this fundus image. Please consult an ophthalmologist promptly for a comprehensive eye examination.'
+    : 'No significant indicators of glaucoma were detected. Continue with regular eye check-ups as recommended by your eye care professional.';
+
+  document.getElementById('conf-pct').textContent = `${pct}%`;
+
+  document.getElementById('advice-box').innerHTML = isGlaucoma
+    ? `<strong>⚕ Recommended Next Steps</strong>
+      This result suggests possible glaucomatous changes. Please schedule an appointment with an ophthalmologist for Intraocular Pressure (IOP) measurement, visual field testing, and OCT scan. Early treatment can significantly slow disease progression.`
+    : `<strong>✔ Keep Up Healthy Eye Habits</strong>
+      Your result looks healthy. Maintain annual eye exams, especially if you have a family history of glaucoma, are over 60, or have elevated eye pressure. Glaucoma can develop silently — early detection is key.`;
+
+  const section = document.getElementById('result-section');
+  section.classList.add('show');
+
+  setTimeout(() => {
+    const fill = document.getElementById('conf-fill');
+    fill.style.width = `${pct}%`;
+  }, 100);
+
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.classList.add('show');
+}
+function hideError() { document.getElementById('error-box').classList.remove('show'); }
+
+function resetAll() {
+  document.getElementById('dropzone').style.display = '';
+  document.getElementById('preview-wrapper').classList.remove('show');
+  document.getElementById('result-section').classList.remove('show');
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-img').src = '';
+  document.getElementById('conf-fill').style.width = '0%';
+  hideError();
+  extractedFeatures = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
